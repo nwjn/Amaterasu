@@ -4,7 +4,6 @@ import MarkdownElement from "../../DocGuiLib/elements/Markdown"
 import SearchElement from "./Search"
 import { CenterConstraint, CramSiblingConstraint, OutlineEffect, ScrollComponent, UIRoundedRectangle, UIText, Window } from "../../Elementa"
 import Category from "./Category"
-import ConfigTypes from "./ConfigTypes"
 import { CustomGui } from "../../DocGuiLib/core/CustomGui"
 import HandleRegisters from "../../DocGuiLib/listeners/Registers"
 
@@ -22,7 +21,7 @@ const mergeObjects = (obj1, obj2, final = {}) => {
         // Key was already added from the first object
         if (k in final) {
             // Go a level deeper if this is an object
-            if (typeof (v) == "object" && !Array.isArray(v)) {
+            if (typeof v === "object" && !Array.isArray(v)) {
                 final[k] = mergeObjects(obj1[k], v)
             }
             continue
@@ -79,11 +78,11 @@ export default class Settings {
         this.handler.registers = new HandleRegisters(this.handler.ctGui, this.handler.window)
         this.handler.registers.isCustom = true
 
-        // Save window size to fix textwrapping issue
+        // Save window size to fix text-wrapping issue
         this._startedWidth = Renderer.screen.getWidth() * Renderer.screen.getScale()
         this._startedHeight = Renderer.screen.getHeight() * Renderer.screen.getScale()
 
-        this.titleText = titleText?.addColor() ?? `${this.moduleName.addColor()} Settings`
+        this.titleText = (titleText ?? `${this.moduleName} Settings`).addColor()
         this.sortCategories = null
         this.sortElements = null
         this.GuiScale = null
@@ -96,40 +95,39 @@ export default class Settings {
 
         // Enable repeat keys so people can hold down keys to type now
         this.handler.ctGui
-            .registerInit(() => {
-                Keyboard.enableRepeatEvents(true)
-            })
-            .registerResize(() => {
-                this._checkResize()
-            })
+            .registerInit(() => Keyboard.enableRepeatEvents(true))
+            .registerResize(this._checkResize.bind(this))
 
         this.handler.registers
             .onOpen(() => {
                 this._checkResize()
 
                 // Trigger listeners
-                this._onOpenGui.forEach(it => it())
+                for (let fn of this._onOpenGui) fn?.call(null)
 
-                if (Client.getMinecraft().field_71474_y.field_74335_Z === 2) return
+                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
+                if (gameSettings./* guiScale */field_74335_Z === 2) return
 
                 // Save previous [GuiScale]
-                this.GuiScale = Client.getMinecraft().field_71474_y.field_74335_Z
+                this.GuiScale = gameSettings./* guiScale */field_74335_Z
                 // Set [Normal] [GuiScale]
-                Client.getMinecraft().field_71474_y.field_74335_Z = 2
+                gameSettings./* guiScale */field_74335_Z = 2
             })
             .onClose(() => {
                 // Disable repeating keys so it doesn't leak to the main game
                 Keyboard.enableRepeatEvents(false)
 
-                this.categories?.forEach(it => it?.createElementClass?._hideDropDownComps())
+                for (let cat of this.categories) cat?.createElementClass?._hideDropDownComps?.call(null)
 
                 // Trigger listeners
-                this._onCloseGui.forEach(it => it())
+                for (let fn of this._onCloseGui) fn?.call(null)
 
-                if (Client.getMinecraft().field_71474_y.field_74335_Z !== 2 || this.GuiScale == null) return
-                if (this.GuiScale === 2) return
+                if (this.GuiScale === null || this.GuiScale === 2) return
 
-                Client.getMinecraft().field_71474_y.field_74335_Z = this.GuiScale
+                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
+                if (gameSettings./* guiScale */field_74335_Z !== 2) return
+
+                gameSettings./* guiScale */field_74335_Z = this.GuiScale
                 this.GuiScale = null
             })
 
@@ -271,7 +269,7 @@ export default class Settings {
              * - Calls the main instance's `apply` method
              * @returns {this}
              */
-            apply: () => this.apply()
+            apply: this.apply.bind(this)
         }
 
         this._onClickSound = null
@@ -302,7 +300,7 @@ export default class Settings {
      * @see {@link apply}
      */
     setCategorySort(fn) {
-        if (typeof (fn) !== "function") throw new Error(`${fn} is not a valid function`)
+        if (typeof fn !== "function") throw `[Amaterasu] "${fn}" is not a valid function`
         this.sortCategories = fn
 
         return this
@@ -318,7 +316,7 @@ export default class Settings {
      * @see {@link apply}
      */
     setElementSort(fn) {
-        if (typeof (fn) !== "function") throw new Error(`${fn} is not a valid function`)
+        if (typeof fn !== "function") throw `[Amaterasu] "${fn}" is not a valid function`
         this.sortElements = fn
 
         return this
@@ -368,32 +366,33 @@ export default class Settings {
 
     /**
      * - Sets the new config value of the given [configName]
-     * - to the passed [value] then calls the `apply` method to re-build this window
+     * - to the passed [value], then calls the `apply` method to update this window
      * @template {keyof GetTypeA<DefaultConfig>} CategoryName
      * @template {keyof GetTypeA<DefaultConfig>[CategoryName]} ConfigName
      * @param {CategoryName} category
      * @param {ConfigName} configName
      * @param {GetTypeA<DefaultConfig>[CategoryName][ConfigName]} value
-     * @returns {this} this for method chaining
+     * @returns {this} this for method chaining unless errors
      */
     setConfigValue(category, configName, value) {
-        if (!category || !configName || !this.categories.has(category)) throw new Error(`category: ${category} or configName: ${configName} are not valid.`)
+        if (!category || !this.categories.has(category)) throw `[Amaterasu] No category called "${category}" exists here`
+        if (!configName) throw `[Amaterasu] Cannot have configName "${configName}"`
 
-        let configObj = this.config.find(it => it.category === category)?.settings?.find(it => it.name === configName)
+        const catSettings = this.config.find(it => it.category === category)?.settings
+        if (!catSettings) throw `[Amaterasu] Cannot find category "${category}"`
 
-        // Multicheckbox logic
-        if (!configObj) {
-            configObj = this.config.find(it => it.category === category)?.settings?.find(it => it.options?.some(n => n.configName === configName))
-            if (configObj?.type === ConfigTypes.MULTICHECKBOX)
-                configObj = configObj.options.find(it => it.configName === configName)
-        }
-        if (!configObj) return this
+        let tempObj
+        const configObj = 
+            catSettings.find(it => it.name === configName) 
+            ?? /* Multicheckbox logic */ (catSettings.some(it => tempObj ??= it.options?.find(n => n.configName === configName)) && tempObj)
+
+        if (!configObj) throw `[Amaterasu] Cannot find configName or option "${configName}" in category "${category}"`
 
         const createElm = this.categories.get(category).createElementClass
-        const newValue = createElm?.configComps?.get(configName)?.setValue(value)
+        const newValue = createElm?.configComps?.get(configName)?.setValue(value) ?? /* coerce nullish as null */ null
         const oldValue = configObj.value
 
-        if (newValue == null) return
+        if (newValue === null) throw `[Amaterasu] Cannot get component "${configName}" from "${category}" element class, or ${value} cannot be set`
 
         configObj.value = newValue
         this.configsClass._normalizeSettings(this.settings)
@@ -401,9 +400,19 @@ export default class Settings {
 
         // Trigger listener
         const editedName = configObj.name ?? configObj.configName
-        this._configListeners.get(editedName)?.forEach(it => it(oldValue, newValue, editedName))
-        this._configListeners.get(this.generalSymbol)?.forEach(it => it(oldValue, newValue, editedName))
-        if (configObj.registerListener) configObj.registerListener(oldValue, newValue, editedName)
+
+        const configListeners = this._configListeners
+        const args = [oldValue, newValue, editedName]
+        try /* to run all listener functions */ {
+            configListeners.get(editedName)?.forEach(it => it.apply(null, args))
+            configListeners.get(this.generalSymbol)?.forEach(it => it.apply(null, args))
+            configObj.registerListener?.apply(null, args)
+        } catch /* when a listener errors */ (err) {
+            // Still want to throw error but good to revert change and inform in console
+            console.warn(`[Amaterasu] Listener execution failed with args: ${args.join(", ")}\nvalue "${newValue}" will be reverted to "${oldValue}"`)
+            configObj.value = oldValue
+            throw err
+        }
 
         return this
     }
@@ -414,7 +423,7 @@ export default class Settings {
      * @returns {this} this for method chaining
      */
     setClickSound(cb) {
-        if (typeof cb !== "function") throw `[Amateras] ${cb} is not a valid function`
+        if (typeof cb !== "function") throw `[Amaterasu] "${cb}" is not a valid function`
 
         this._onClickSound = cb
 
@@ -430,8 +439,10 @@ export default class Settings {
      * @returns {this} this for method chaining
      */
     setCategoryCb(categoryName, cb) {
+        if (!this.categories.has(categoryName)) return
+
         this._hideCategory[categoryName] = cb
-        this.categories.get(categoryName)?._setShouldShow(cb)
+        this.categories.get(categoryName)._setShouldShow(cb)
 
         return this
     }
@@ -514,7 +525,7 @@ export default class Settings {
      * @returns {this} this for method chaining
      */
     onOpenGui(fn) {
-        if (typeof (fn) !== "function") throw new Error(`${fn} is not a valid function.`)
+        if (typeof fn !== "function") throw `[Amaterasu] "${fn}" is not a valid function.`
 
         this._onOpenGui.push(fn)
 
@@ -527,7 +538,7 @@ export default class Settings {
      * @returns {this} this for method chaining
      */
     onCloseGui(fn) {
-        if (typeof (fn) !== "function") throw new Error(`${fn} is not a valid function.`)
+        if (typeof fn !== "function") throw `[Amaterasu] "${fn}" is not a valid function.`
 
         this._onCloseGui.push(fn)
 
@@ -536,7 +547,7 @@ export default class Settings {
 
     /**
      * - Runs the given function whenever the configName changes value
-     * - the function will recieve the args `(previousValue, newValue, configName)`
+     * - the function will receive the args `(previousValue, newValue, configName)`
      * @template {keyof GetTypeP<DefaultConfig>} ConfigName
      * @overload
      * @param {ConfigName} configName
@@ -545,18 +556,18 @@ export default class Settings {
      */
     /**
      * - Runs the given function whenever any config changes value
-     * - the function will recieve the args `(previousValue, newValue, configName)`
+     * - the function will receive the args `(previousValue, newValue, configName)`
      * @overload
      * @param {(previousValue: import("./DefaultConfig").DefaultObjectValue, newValue: import("./DefaultConfig").DefaultObjectValue, name: string) => void} configName
      * @returns {this} this for method chaining
      */
     registerListener(configName, fn) {
-        if (!configName) throw new Error(`${configName} is not a valid config name.`)
+        if (!configName) throw `[Amaterasu] "${configName}" is not a valid config name.`
         if (typeof configName === "function") {
             fn = configName
             configName = this.generalSymbol
         }
-        if (typeof (fn) !== "function") throw new Error(`${fn} is not a valid function.`)
+        if (typeof fn !== "function") throw `[Amaterasu] "${fn}" is not a valid function.`
 
         if (!this._configListeners.has(configName)) this._configListeners.set(configName, [])
 
@@ -575,10 +586,10 @@ export default class Settings {
      */
     redirect(categoryName, configName = null) {
         const categoryInstance = this.categories.get(categoryName)
-        if (!categoryInstance) throw new Error(`${categoryName} is not a valid category name.`)
+        if (!categoryInstance) throw `[Amaterasu] "${categoryName}" is not a valid category name.`
 
         // Reset the state of all the categories
-        this.categories.forEach(value => value._setSelected(false))
+        for (let cat of this.categories) cat._setSelected(false)
 
         // Set the new category's state
         this.oldCategory = null
@@ -608,11 +619,11 @@ export default class Settings {
      */
     apply() {
         this.oldCategory = null
-        this.categories.forEach(value => value._delete())
+        for (let cat of this.categories) cat._delete()
         this.handler.getWindow().clearChildren()
         this._init()
 
-        this.markdowns.forEach(md => this.addMarkdown(...md, true))
+        this.markdowns.forEach(([cat, txt]) => this.addMarkdown(cat, txt, true))
 
         return this
     }
@@ -700,7 +711,7 @@ export default class Settings {
     }
 
     /**
-     * - Checks whether the color scheme exists and if it doesnt it creates
+     * - Checks whether the color scheme exists and if it doesn't it creates
      * a new one using the path and the default color scheme from the module
      * @private
      * @param {string} moduleName
@@ -714,7 +725,7 @@ export default class Settings {
 
         if (colorScheme?.Amaterasu?.backgroundBox) {
             const oldSchemePath = `${path.replace(/\.json/, "")}_old.json`
-            console.warn(`[Amaterasu - ${this.moduleName}] old scheme system detected, your old scheme has been saved as ${oldSchemePath}`)
+            console.warn(`[Amaterasu - ${this.moduleName}] Old scheme system detected, your old scheme has been saved as ${oldSchemePath}`)
 
             this._saveScheme(oldSchemePath, colorScheme)
             // Reset values since we need it to be a clean new object
@@ -765,19 +776,20 @@ export default class Settings {
      * @private
      */
     _checkResize() {
+        const screen = Renderer.screen
         if (
-            this._startedWidth !== (Renderer.screen.getWidth() * Renderer.screen.getScale()) ||
-            this._startedHeight !== (Renderer.screen.getHeight() * Renderer.screen.getScale())
+            this._startedWidth !== (screen.getWidth() * screen.getScale()) ||
+            this._startedHeight !== (screen.getHeight() * screen.getScale())
         ) {
             // Window size changed since last time we were created
-            // This means textwrap might look weird so we need to rebuild the gui
+            // This means text-wrap might look weird so we need to rebuild the gui
             // This is not really that optimal since it's changing the size only but
             // due to the nature of how Amaterasu works it has to be done this way
             this.apply()
 
             // Set new size so we don't constantly rebuild
-            this._startedWidth = Renderer.screen.getWidth() * Renderer.screen.getScale()
-            this._startedHeight = Renderer.screen.getHeight() * Renderer.screen.getScale()
+            this._startedWidth = screen.getWidth() * screen.getScale()
+            this._startedHeight = screen.getHeight() * screen.getScale()
         }
     }
 
@@ -787,15 +799,13 @@ export default class Settings {
      * @private
      */
     _hideAll() {
-        this.categories.forEach(value => {
-            value._setSelected(false)
-        })
+        for (let cat of this.categories) cat._setSelected(false)
 
         this.searchBar._addSlider()
     }
 
     /**
-     * - Unhides the previously selected category
+     * - Unhide the previously selected category
      * - Currently only used by [SearchBar]
      * @private
      */
@@ -825,8 +835,6 @@ export default class Settings {
 
     /** @private */
     _triggerShouldShowCategory() {
-        this.categories.forEach((it) => {
-            it.shouldShow()
-        })
+        for (let cat of this.categories) cat.shouldShow()
     }
 }
