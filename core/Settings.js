@@ -103,7 +103,7 @@ export default class Settings {
                 this._checkResize()
 
                 // Trigger listeners
-                for (let fn of this._onOpenGui) fn?.call(null)
+                for (let fn of this._onOpenGui) fn?.call()
 
                 const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
                 if (gameSettings./* guiScale */field_74335_Z === 2) return
@@ -117,10 +117,10 @@ export default class Settings {
                 // Disable repeating keys so it doesn't leak to the main game
                 Keyboard.enableRepeatEvents(false)
 
-                for (let cat of this.categories) cat?.createElementClass?._hideDropDownComps?.call(null)
+                for (let cat of this.categories) cat?.createElementClass?._hideDropDownComps?.call()
 
                 // Trigger listeners
-                for (let fn of this._onCloseGui) fn?.call(null)
+                for (let fn of this._onCloseGui) fn?.call()
 
                 if (this.GuiScale === null || this.GuiScale === 2) return
 
@@ -403,16 +403,10 @@ export default class Settings {
 
         const configListeners = this._configListeners
         const args = [oldValue, newValue, editedName]
-        try /* to run all listener functions */ {
-            configListeners.get(editedName)?.forEach(it => it.apply(null, args))
-            configListeners.get(this.generalSymbol)?.forEach(it => it.apply(null, args))
-            configObj.registerListener?.apply(null, args)
-        } catch /* when a listener errors */ (err) {
-            // Still want to throw error but good to revert change and inform in console
-            console.warn(`[Amaterasu] Listener execution failed with args: ${args.join(", ")}\nvalue "${newValue}" will be reverted to "${oldValue}"`)
-            configObj.value = oldValue
-            throw err
-        }
+
+        configListeners.get(editedName)?.forEach(it => it.apply(null, args))
+        configListeners.get(this.generalSymbol)?.forEach(it => it.apply(null, args))
+        configObj.registerListener?.apply(null, args)
 
         return this
     }
@@ -589,7 +583,7 @@ export default class Settings {
         if (!categoryInstance) throw `[Amaterasu] "${categoryName}" is not a valid category name.`
 
         // Reset the state of all the categories
-        for (let cat of this.categories) cat._setSelected(false)
+        for (let cat of this.categories) cat?._setSelected?.apply(null, false)
 
         // Set the new category's state
         this.oldCategory = null
@@ -619,7 +613,7 @@ export default class Settings {
      */
     apply() {
         this.oldCategory = null
-        for (let cat of this.categories) cat._delete()
+        for (let cat of this.categories) cat?._delete?.call()
         this.handler.getWindow().clearChildren()
         this._init()
 
@@ -799,7 +793,7 @@ export default class Settings {
      * @private
      */
     _hideAll() {
-        for (let cat of this.categories) cat._setSelected(false)
+        for (let cat of this.categories) cat?._setSelected?.call(null, false)
 
         this.searchBar._addSlider()
     }
@@ -835,6 +829,6 @@ export default class Settings {
 
     /** @private */
     _triggerShouldShowCategory() {
-        for (let cat of this.categories) cat.shouldShow()
+        for (let cat of this.categories) cat?.shouldShow?.call()
     }
 }
