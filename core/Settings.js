@@ -93,44 +93,6 @@ export default class Settings {
         this._configListeners = new Map()
         this.generalSymbol = Symbol("all")
 
-        // Enable repeat keys so people can hold down keys to type now
-        this.handler.ctGui
-            .registerInit(() => Keyboard.enableRepeatEvents(true))
-            .registerResize(this._checkResize.bind(this))
-
-        this.handler.registers
-            .onOpen(() => {
-                this._checkResize()
-
-                // Trigger listeners
-                for (let fn of this._onOpenGui) fn?.call()
-
-                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
-                if (gameSettings./* guiScale */field_74335_Z === 2) return
-
-                // Save previous [GuiScale]
-                this.GuiScale = gameSettings./* guiScale */field_74335_Z
-                // Set [Normal] [GuiScale]
-                gameSettings./* guiScale */field_74335_Z = 2
-            })
-            .onClose(() => {
-                // Disable repeating keys so it doesn't leak to the main game
-                Keyboard.enableRepeatEvents(false)
-
-                for (let cat of this.categories) cat?.createElementClass?._hideDropDownComps?.call()
-
-                // Trigger listeners
-                for (let fn of this._onCloseGui) fn?.call()
-
-                if (this.GuiScale === null || this.GuiScale === 2) return
-
-                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
-                if (gameSettings./* guiScale */field_74335_Z !== 2) return
-
-                gameSettings./* guiScale */field_74335_Z = this.GuiScale
-                this.GuiScale = null
-            })
-
         // Config variables
         // Set this so we can actually have the [settings] field auto update
         // Rather than having to use a function to return its newly defined value
@@ -148,6 +110,47 @@ export default class Settings {
         this.oldCategory = null
         this.markdowns = []
         this._hideCategory = {}
+
+        // Enable repeat keys so people can hold down keys to type now
+        this.handler.ctGui
+            .registerInit(() => Keyboard.enableRepeatEvents(true))
+            .registerResize(this._checkResize.bind(this))
+
+        this.handler.registers
+            .onOpen(() => {
+                this._checkResize()
+
+                // Trigger listeners
+                for (let fn of this._onOpenGui) 
+                    fn()
+
+                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
+                if (gameSettings./* guiScale */field_74335_Z === 2) return
+
+                // Save previous [GuiScale]
+                this.GuiScale = gameSettings./* guiScale */field_74335_Z
+                // Set [Normal] [GuiScale]
+                gameSettings./* guiScale */field_74335_Z = 2
+            })
+            .onClose(() => {
+                // Disable repeating keys so it doesn't leak to the main game
+                Keyboard.enableRepeatEvents(false)
+
+                for (let entry of this.categories)
+                    entry[1]?.createElementClass?._hideDropDownComps()
+
+                // Trigger listeners
+                for (let fn of this._onCloseGui)
+                    fn()
+
+                if (this.GuiScale === null || this.GuiScale === 2) return
+
+                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
+                if (gameSettings./* guiScale */field_74335_Z !== 2) return
+
+                gameSettings./* guiScale */field_74335_Z = this.GuiScale
+                this.GuiScale = null
+            })
 
         // Drawing variables
         /**
@@ -295,7 +298,7 @@ export default class Settings {
      * - The object is passed through the function
      * - (e.g "obj" would be a param so you can then do "obj.category" for its category name)
      * - NOTE: this function should return [-1, 0, 1]
-     * @param {(a: import("./DefaultConfig").DefaultDefaultObject, b: import("./DefaultConfig").DefaultDefaultObject) => number}} fn
+     * @param {(a: import("./DefaultConfig").DefaultDefaultObject, b: import("./DefaultConfig").DefaultDefaultObject) => number} fn
      * @returns {this} this for method chaining
      * @see {@link apply}
      */
@@ -330,8 +333,10 @@ export default class Settings {
      * @see {@link apply}
      */
     setPos(x, y) {
-        if (x) this.AmaterasuGui.background.x = x
-        if (y) this.AmaterasuGui.background.y = y
+        if (typeof x !== typeof y || Math.min(x, y) < 0) throw `[Amaterasu] Cannot set position to non-negative numbers <x: ${x}, y: ${y}>`
+
+        this.AmaterasuGui.background.x = x
+        this.AmaterasuGui.background.y = y
 
         return this
     }
@@ -344,8 +349,10 @@ export default class Settings {
      * @see {@link apply}
      */
     setSize(width, height) {
-        if (width) this.AmaterasuGui.background.width = width
-        if (height) this.AmaterasuGui.background.height = height
+        if (typeof width !== typeof height || Math.min(width, height) < 0) throw `[Amaterasu] Cannot set width/height to non-negative numbers <width: ${width}, height: ${height}>`
+
+        this.AmaterasuGui.background.width = width
+        this.AmaterasuGui.background.height = height
 
         return this
     }
@@ -388,7 +395,7 @@ export default class Settings {
 
         if (!configObj) throw `[Amaterasu] Cannot find configName or option "${configName}" in category "${category}"`
 
-        const createElm = this.categories.get(category).createElementClass
+        const createElm = this.categories.get(category)?.createElementClass
         const newValue = createElm?.configComps?.get(configName)?.setValue(value) ?? /* coerce nullish as null */ null
         const oldValue = configObj.value
 
@@ -402,11 +409,10 @@ export default class Settings {
         const editedName = configObj.name ?? configObj.configName
 
         const configListeners = this._configListeners
-        const args = [oldValue, newValue, editedName]
 
-        configListeners.get(editedName)?.forEach(it => it.apply(null, args))
-        configListeners.get(this.generalSymbol)?.forEach(it => it.apply(null, args))
-        configObj.registerListener?.apply(null, args)
+        configListeners.get(editedName)?.forEach(it => it(oldValue, newValue, editedName))
+        configListeners.get(this.generalSymbol)?.forEach(it => it(oldValue, newValue, editedName))
+        configObj.registerListener?.(oldValue, newValue, editedName)
 
         return this
     }
@@ -418,7 +424,6 @@ export default class Settings {
      */
     setClickSound(cb) {
         if (typeof cb !== "function") throw `[Amaterasu] "${cb}" is not a valid function`
-
         this._onClickSound = cb
 
         return this
@@ -433,10 +438,8 @@ export default class Settings {
      * @returns {this} this for method chaining
      */
     setCategoryCb(categoryName, cb) {
-        if (!this.categories.has(categoryName)) return
-
         this._hideCategory[categoryName] = cb
-        this.categories.get(categoryName)._setShouldShow(cb)
+        this.categories.get(categoryName)?._setShouldShow(cb)
 
         return this
     }
@@ -520,7 +523,6 @@ export default class Settings {
      */
     onOpenGui(fn) {
         if (typeof fn !== "function") throw `[Amaterasu] "${fn}" is not a valid function.`
-
         this._onOpenGui.push(fn)
 
         return this
@@ -533,7 +535,6 @@ export default class Settings {
      */
     onCloseGui(fn) {
         if (typeof fn !== "function") throw `[Amaterasu] "${fn}" is not a valid function.`
-
         this._onCloseGui.push(fn)
 
         return this
@@ -583,7 +584,8 @@ export default class Settings {
         if (!categoryInstance) throw `[Amaterasu] "${categoryName}" is not a valid category name.`
 
         // Reset the state of all the categories
-        for (let cat of this.categories) cat?._setSelected?.apply(null, false)
+        for (let entry of this.categories)
+            entry[1]._setSelected(false)
 
         // Set the new category's state
         this.oldCategory = null
@@ -595,7 +597,7 @@ export default class Settings {
         if (configName) {
             Client.scheduleTask(2, () => {
                 const rightBlock = categoryInstance.rightBlock
-                const comp = categoryInstance.createElementClass._find(configName)?.component
+                const comp = categoryInstance?.createElementClass?._find(configName)?.component
                 if (!comp) return
 
                 const newY = rightBlock.getTop() - comp.getTop()
@@ -613,37 +615,44 @@ export default class Settings {
      */
     apply() {
         this.oldCategory = null
-        for (let cat of this.categories) cat?._delete?.call()
+
+        for (let entry of this.categories) 
+            entry[1]._delete()
+
         this.handler.getWindow().clearChildren()
         this._init()
 
-        this.markdowns.forEach(([cat, txt]) => this.addMarkdown(cat, txt, true))
+        for (let md of this.markdowns) 
+            this.addMarkdown(md[0], md[1], true)
 
         return this
     }
 
     /** @private */
     _init() {
-        this.mainBlock = new UIRoundedRectangle(this.handler.getColorScheme().Amaterasu.background.roundness)
-            .setX((this.AmaterasuGui.background.x).percent())
-            .setY((this.AmaterasuGui.background.y).percent())
-            .setWidth((this.AmaterasuGui.background.width).percent())
-            .setHeight((this.AmaterasuGui.background.height).percent())
-            .setColor(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.background.color))
-            .enableEffect(new OutlineEffect(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.background.outlineColor), this.handler.getColorScheme().Amaterasu.background.outlineSize))
+        const guiScheme = this.handler.getColorScheme().Amaterasu
+        const guiBounds = this.AmaterasuGui
+
+        this.mainBlock = new UIRoundedRectangle(guiScheme.background.roundness)
+            .setX((guiBounds.background.x).percent())
+            .setY((guiBounds.background.y).percent())
+            .setWidth((guiBounds.background.width).percent())
+            .setHeight((guiBounds.background.height).percent())
+            .setColor(ElementUtils.getJavaColor(guiScheme.background.color))
+            .enableEffect(new OutlineEffect(ElementUtils.getJavaColor(guiScheme.background.outlineColor), guiScheme.background.outlineSize))
 
         this.title = new UIText(this.titleText)
             .setX(new CenterConstraint())
             .setY((3).percent())
-            .setTextScale((this.handler.getColorScheme().Amaterasu.title.scale).pixels())
-            .setColor(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.title.color))
+            .setTextScale((guiScheme.title.scale).pixels())
+            .setColor(ElementUtils.getJavaColor(guiScheme.title.color))
             .setChildOf(this.mainBlock)
 
         this.searchBarBg = new UIRoundedRectangle(3)
-            .setX((this.AmaterasuGui.searchBar.x).percent())
-            .setY((this.AmaterasuGui.searchBar.y).percent())
-            .setWidth((this.AmaterasuGui.searchBar.width).percent())
-            .setHeight((this.AmaterasuGui.searchBar.height).percent())
+            .setX((guiBounds.searchBar.x).percent())
+            .setY((guiBounds.searchBar.y).percent())
+            .setWidth((guiBounds.searchBar.width).percent())
+            .setHeight((guiBounds.searchBar.height).percent())
             .setColor(ElementUtils.getJavaColor([0, 0, 0, 0]))
             .setChildOf(this.mainBlock)
 
@@ -651,9 +660,9 @@ export default class Settings {
             .setX((0.5).percent())
             .setY(new CramSiblingConstraint(5))
             .setWidth((99).percent())
-            .setHeight((this.handler.getColorScheme().Amaterasu.line.size).percent())
-            .setColor(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.line.color))
-            .enableEffect(new OutlineEffect(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.line.outlineColor), this.handler.getColorScheme().Amaterasu.line.outlineSize))
+            .setHeight((guiScheme.line.size).percent())
+            .setColor(ElementUtils.getJavaColor(guiScheme.line.color))
+            .enableEffect(new OutlineEffect(ElementUtils.getJavaColor(guiScheme.line.outlineColor), guiScheme.line.outlineSize))
             .setChildOf(this.mainBlock)
 
         this.leftBlockBg = new UIRoundedRectangle(3)
@@ -661,10 +670,10 @@ export default class Settings {
             .setY(new CramSiblingConstraint(5))
             .setWidth((18).percent())
             .setHeight((87).percent())
-            .setColor(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.panel.leftColor))
+            .setColor(ElementUtils.getJavaColor(guiScheme.panel.leftColor))
             .setChildOf(this.mainBlock)
 
-        this.leftBlock = new ScrollComponent("no elements", 5.0)
+        this.leftBlock = new ScrollComponent("No elements...", 5.0)
             .setX((1).percent())
             .setY((1).percent())
             .setWidth((98).percent())
@@ -673,8 +682,8 @@ export default class Settings {
 
         this.leftBlockScrollbar = new UIRoundedRectangle(3)
             .setX((3).pixels(true))
-            .setWidth((this.AmaterasuGui.scrollbarSize).pixels())
-            .setColor(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.scrollbar.color))
+            .setWidth((guiBounds.scrollbarSize).pixels())
+            .setColor(ElementUtils.getJavaColor(guiScheme.scrollbar.color))
             .setChildOf(this.leftBlockBg)
 
         this.leftBlock.setScrollBarComponent(this.leftBlockScrollbar, true, false)
@@ -684,7 +693,7 @@ export default class Settings {
             .setY(new CramSiblingConstraint(5))
             .setWidth((70).percent())
             .setHeight((87).percent())
-            .setColor(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.panel.rightColor))
+            .setColor(ElementUtils.getJavaColor(guiScheme.panel.rightColor))
             .setChildOf(this.mainBlock)
 
         this.searchBar = new SearchElement(this)
@@ -693,15 +702,14 @@ export default class Settings {
 
         if (this.sortCategories) this.config.sort(this.sortCategories)
 
-        this.config.forEach((obj, index) => {
-            const categoryName = obj.category
+        for (let idx in this.config) {
+            let categoryName = this.config[idx].category
 
-            this.categories.set(
-                categoryName,
-                new Category(this, categoryName, index === 0).createElementClass._create()
-            )
-            this.categories.get(categoryName)._setShouldShow(this._hideCategory[categoryName]).shouldShow()
-        })
+            let categoryClass = new Category(this, categoryName, idx === 0, true).createElementClass._create()
+            this.categories.set(categoryName, categoryClass)
+
+            categoryClass._setShouldShow(this._hideCategory[categoryName]).shouldShow()
+        }
     }
 
     /**
@@ -742,24 +750,24 @@ export default class Settings {
     _checkCategories() {
         let selectedAmount = 0
 
-        this.categories.forEach((value, key) => {
+        for (let entry of this.categories) {
             // Ensure that the amount of selected components variables
             // set to true is more than 1
-            if (value.selected) selectedAmount++
-            if (selectedAmount < 1) return
+            if (entry[1].selected) selectedAmount++
+            if (selectedAmount < 1) continue
 
             // Gets the old category's class to disable it
-            const oldCategoryClass = this.categories.get(this.oldCategory)
+            let oldCategoryClass = this.categories.get(this.oldCategory)
 
             // Disable the old category (aka just hide it)
-            oldCategoryClass._setSelected(false)
+            oldCategoryClass?._setSelected(false)
             this.searchBar._hide()
 
             // Set this key as the old category
-            this.oldCategory = key
+            this.oldCategory = entry[0]
             // Reset to default values
             selectedAmount = 0
-        })
+        }
     }
 
     /**
@@ -770,10 +778,9 @@ export default class Settings {
      * @private
      */
     _checkResize() {
-        const screen = Renderer.screen
         if (
-            this._startedWidth !== (screen.getWidth() * screen.getScale()) ||
-            this._startedHeight !== (screen.getHeight() * screen.getScale())
+            this._startedWidth !== (Renderer.screen.getWidth() * Renderer.screen.getScale()) ||
+            this._startedHeight !== (Renderer.screen.getHeight() * Renderer.screen.getScale())
         ) {
             // Window size changed since last time we were created
             // This means text-wrap might look weird so we need to rebuild the gui
@@ -782,8 +789,8 @@ export default class Settings {
             this.apply()
 
             // Set new size so we don't constantly rebuild
-            this._startedWidth = screen.getWidth() * screen.getScale()
-            this._startedHeight = screen.getHeight() * screen.getScale()
+            this._startedWidth = Renderer.screen.getWidth() * Renderer.screen.getScale()
+            this._startedHeight = Renderer.screen.getHeight() * Renderer.screen.getScale()
         }
     }
 
@@ -793,7 +800,8 @@ export default class Settings {
      * @private
      */
     _hideAll() {
-        for (let cat of this.categories) cat?._setSelected?.call(null, false)
+        for (let entry of this.categories) 
+            entry[1]._setSelected(false)
 
         this.searchBar._addSlider()
     }
@@ -829,6 +837,7 @@ export default class Settings {
 
     /** @private */
     _triggerShouldShowCategory() {
-        for (let cat of this.categories) cat?.shouldShow?.call()
+        for (let entry of this.categories) 
+            entry[1].shouldShow()
     }
 }
