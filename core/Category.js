@@ -41,10 +41,7 @@ export default class Category {
 
         // Adding side button with the category name into the sidebar
         this.sidebarButton = new Button1Element(this.categoryName, 0, 0, 80, 8)
-            ._setPosition(
-                (1).pixel(),
-                new SiblingConstraint(3)
-            )
+            ._setPosition((1).pixel(), new SiblingConstraint(3))
             .onMouseClickEvent(() => {
                 // Avoid hiding this element incase it's the only one being shown
                 if (this.parentClass.currentCategory && this.parentClass.currentCategory === this.categoryName) return
@@ -58,9 +55,9 @@ export default class Category {
             ._create(this.handler.getColorScheme())
             .setChildOf(this.leftBlock)
 
-        // Hide/Unhides this category from the main block
+        // Hide/Unhide this category from the main block
         this._refresh()
-        // Creat the elements for this gui based off of the [JSON] file
+        // Create the elements for this gui based off of the [JSON] file
         if (shouldCreate) this.createElementClass = new CreateElement(this)
     }
 
@@ -102,7 +99,7 @@ export default class Category {
      * @returns this for method chaining
      */
     _updateElement(element) {
-        let name = element.name ?? element.configName
+        const name = element.name ?? element.configName
         this.parentClass.settings[name] = element.value
         this.createElementClass._hideElement(this.parentClass.settings)
 
@@ -116,10 +113,7 @@ export default class Category {
      */
     _createDivider(string, isSubCategory = false) {
         new DividerElement(string, 0, 0, 85, 5)
-            ._setPosition(
-                new CenterConstraint(),
-                new CramSiblingConstraint(5)
-            )
+            ._setPosition(new CenterConstraint(), new CramSiblingConstraint(5))
             ._create(this.handler.getColorScheme(), isSubCategory ? "DividerSubcategory" : "Divider")
             .setChildOf(this.rightBlock)
 

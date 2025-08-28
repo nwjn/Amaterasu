@@ -52,13 +52,16 @@ export default class CreateElement {
             this.categoryClass?._createDivider(subcategory, this.subcategories.size > 1)
         }
 
+        const guiScheme = this.handler.getColorScheme().Amaterasu
+        const guiBounds = this.categoryClass.parentClass.AmaterasuGui
+
         const bgBox = new UIRoundedRectangle(5)
             .setX(new CenterConstraint())
             .setY(new CramSiblingConstraint(5))
             .setWidth((85).percent())
             .setHeight((20).percent())
-            .setColor(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.descriptionbackground.color))
-            .enableEffect(new OutlineEffect(ElementUtils.getJavaColor(this.handler.getColorScheme().Amaterasu.descriptionbackground.outlineColor), this.handler.getColorScheme().Amaterasu.descriptionbackground.outlineSize))
+            .setColor(ElementUtils.getJavaColor(guiScheme.descriptionbackground.color))
+            .enableEffect(new OutlineEffect(ElementUtils.getJavaColor(guiScheme.descriptionbackground.outlineColor), guiScheme.descriptionbackground.outlineSize))
             .setChildOf(this.rightBlock)
 
         // Change text width depending on the [ConfigType] of this element
@@ -67,33 +70,33 @@ export default class CreateElement {
             : obj.type === ConfigTypes.TEXTPARAGRAPH
                 ? 98
                 : 80
-        const textWrapping = this.categoryClass.parentClass.AmaterasuGui.descriptionElement.textWrap.enabled
+        const textWrapping = guiBounds.descriptionElement.textWrap.enabled
 
         const descElement = new TextDescriptionElement(obj.text, obj.description, obj.centered ?? false, 0, 0, textWidth, 75)
             ._setPosition(
-                (this.categoryClass.parentClass.AmaterasuGui.descriptionElement.xPadding).percent(),
+                (guiBounds.descriptionElement.xPadding).percent(),
                 new CenterConstraint()
             )
             .setWrapHeight(textWrapping)
         descElement
-            ._create(this.handler.getColorScheme().Amaterasu)
+            ._create(guiScheme)
             .setChildOf(bgBox)
 
         if (!textWrapping) {
             const lim = maxLinesMethod.invoke(descElement.descriptionElement)
-            if (lim > this.categoryClass.parentClass.AmaterasuGui.descriptionElement.textWrap.linesLimit) {
-                const linesLength = (lim - this.categoryClass.parentClass.AmaterasuGui.descriptionElement.textWrap.removeLines)
+            if (lim > guiBounds.descriptionElement.textWrap.linesLimit) {
+                const linesLength = (lim - guiBounds.descriptionElement.textWrap.removeLines)
                 bgBox.setHeight(
                     new AdditiveConstraint(
                         (20).percent(),
-                        (this.categoryClass.parentClass.AmaterasuGui.descriptionElement.textWrap.wrapHeight * linesLength).pixels()
+                        (guiBounds.descriptionElement.textWrap.wrapHeight * linesLength).pixels()
                         )
                     )
             }
         }
 
         const textScale = descElement._getSchemeValue("text", "scale")
-        const textScaleType = this.handler.getColorScheme().Amaterasu.Text.text.scaleType
+        const textScaleType = guiScheme.Text.text.scaleType
         const isPercent = textScaleType.toLowerCase() === "percent"
 
         descElement.text.setTextScale((textScale)[isPercent ? "percent" : "pixels"]())
@@ -111,10 +114,9 @@ export default class CreateElement {
      * @returns {Category}
      */
     _create() {
-        const configCategory = this.categoryClass.config?.find(obj => obj.category === this.categoryName)
-        if (!configCategory) return
+        const configSettings = this.categoryClass.config?.find(obj => obj.category === this.categoryName)?.settings
+        if (!configSettings) return
 
-        const configSettings = configCategory.settings
         if (this.sortElement) configSettings.sort(this.sortElement)
 
         // Start creating the elements based off of the [Object]
@@ -140,70 +142,51 @@ export default class CreateElement {
     _createFromObj(obj) {
         switch (obj.type) {
             case ConfigTypes.TOGGLE:
-                this._addToggle(obj, () => this._handleUpdate(obj, !obj.value))
-                break
+                return this._addToggle(obj, () => this._handleUpdate(obj, !obj.value))
 
             case ConfigTypes.SLIDER:
-                this._addSlider(obj, (sliderValue) => {
-                    if (typeof sliderValue === "string") sliderValue = parseFloat(sliderValue)
-                    if (typeof(sliderValue) !== "number" || !this.categoryClass.selected) return
+                return this._addSlider(obj, (sliderValue) => {
+                    sliderValue = parseFloat(sliderValue)
+                    if (isNaN(sliderValue)) return
 
                     this._handleUpdate(obj, sliderValue)
                 })
-                break
 
             case ConfigTypes.BUTTON:
-                this._addButton(obj)
-                break
+                return this._addButton(obj)
 
             case ConfigTypes.SELECTION:
-                this._addSelection(obj, (selectionIndex) => {
-                    if (typeof(selectionIndex) !== "number" || !this.categoryClass.selected) return
+                return this._addSelection(obj, (selectionIndex) => {
+                    if (typeof selectionIndex !== "number") return
                     
                     this._handleUpdate(obj, selectionIndex)
                 })
-                break
 
             case ConfigTypes.TEXTINPUT:
-                this._addTextInput(obj, (inputText) => {
-                    if (!this.categoryClass.selected) return
-                    
-                    this._handleUpdate(obj, inputText)
-                })
-                break
+                return this._addTextInput(obj, (inputText) => this._handleUpdate(obj, inputText))
 
             case ConfigTypes.COLORPICKER:
-                this._addColorPicker(obj, (rgbaArray) => {
-                    if (!this.categoryClass.selected) return
-                    
-                    this._handleUpdate(obj, rgbaArray)
-                })
-                break
+                return this._addColorPicker(obj, (rgbaArray) => this._handleUpdate(obj, rgbaArray))
 
             case ConfigTypes.SWITCH:
-                this._addSwitch(obj, () => this._handleUpdate(obj, !obj.value))
-                break
+                return this._addSwitch(obj, () => this._handleUpdate(obj, !obj.value))
 
             case ConfigTypes.DROPDOWN:
-                this._addDropDown(obj, (value) => this._handleUpdate(obj, value))
-                break
+                return this._addDropDown(obj, (dropDownIndex) => this._handleUpdate(obj, dropDownIndex))
 
             case ConfigTypes.MULTICHECKBOX:
-                this._addMultiCheckbox(obj, (configName, value) => {
-                    const idx = obj.options.findIndex(it => it.configName === configName)
-                    if (idx === -1) return
+                return this._addMultiCheckbox(obj, (configName, value) => {
+                    const actualObj = obj.options.find(it => it.configName === configName)
+                    if (!actualObj) return
                     
-                    this._handleUpdate(obj.options[idx], value)
+                    this._handleUpdate(actualObj, value)
                 })
-                break
 
             case ConfigTypes.TEXTPARAGRAPH:
-                this._makeTextDescription(obj)
-                break
+                return this._makeTextDescription(obj)
 
             case ConfigTypes.KEYBIND:
-                this._addKeybind(obj, (value) => this._handleUpdate(obj, value))
-                break
+                return this._addKeybind(obj, (keyCode) => this._handleUpdate(obj, keyCode))
         }
     }
 
@@ -213,27 +196,27 @@ export default class CreateElement {
      * - Passing through `(previousValue, newValue)`
      * @param {{}} obj
      * @param {*} value
-     * @param {*} newvalue
+     * @param {*} newValue
      */
-    triggerListeners(obj, value, newvalue) {
+    triggerListeners(obj, value, newValue) {
         const _configListeners = this.categoryClass.parentClass._configListeners
 
         const name = obj.name
 
-        _configListeners.get(name)?.forEach(it => it(value, newvalue, name))
-        _configListeners.get(this.categoryClass.parentClass.generalSymbol)?.forEach(it => it(value, newvalue, name))
-        if (obj.registerListener) obj.registerListener(value, newvalue, name)
+        _configListeners.get(name)?.forEach(it => it(value, newValue, name))
+        _configListeners.get(this.categoryClass.parentClass.generalSymbol)?.forEach(it => it(value, newValue, name))
+        obj.registerListener?.(value, newValue, name)
     }
 
     _handleUpdate(obj, newValue) {
         if (Array.isArray(newValue) && obj.value.every((value, index) => value === newValue[index])) return
         else if (obj.value === newValue) return
 
-        let oldv = obj.value
+        let oldValue = obj.value
         obj.value = newValue
         this.categoryClass._updateElement(obj)
         // Avoid triggering the listener BEFORE the object is actually updated
-        this.triggerListeners(obj, oldv, newValue)
+        this.triggerListeners(obj, oldValue, newValue)
     }
 
     _triggerSoundClick() {
@@ -288,10 +271,7 @@ export default class CreateElement {
         const textDescription = this._makeTextDescription(obj)
 
         const selection = new SelectionElement(obj.options, obj.value, 0, 0, 17, 30)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
+            ._setPosition((5).pixel(true), new CenterConstraint())
             .onMouseClickEvent((idx) => {
                 this._triggerSoundClick()
                 fn(idx)
@@ -309,13 +289,8 @@ export default class CreateElement {
 
         const input = new TextInputElement(obj.value, 0, 0, 17, 30)
             .setPlaceHolder(obj.placeHolder)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
-            .onMouseClickEvent(() => {
-                this._triggerSoundClick()
-            })
+            ._setPosition((5).pixel(true), new CenterConstraint())
+            .onMouseClickEvent(this._triggerSoundClick.bind(this))
             .onKeyTypeEvent(fn)
         input
             ._create(this.handler.getColorScheme())
@@ -329,22 +304,15 @@ export default class CreateElement {
         const textDescription = this._makeTextDescription(obj)
 
         const comp = new ColorPickerElement(obj.value, 0, 0, 17, 30)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
+            ._setPosition((5).pixel(true), new CenterConstraint())
             .onKeyTypeEvent(fn)
 
         comp._create(this.handler.getColorScheme())
             .setChildOf(textDescription)
 
-        comp.textInput.onMouseClickEvent(() => {
-            this._triggerSoundClick()
-        })
+        comp.textInput.onMouseClickEvent(this._triggerSoundClick.bind(this))
+        comp.arrowText.onMouseClick(this._triggerSoundClick.bind(this))
 
-        comp.arrowText.onMouseClick(() => {
-            this._triggerSoundClick()
-        })
         this.configComps.set(obj.name, comp)
 
         return this
@@ -355,10 +323,7 @@ export default class CreateElement {
 
         // Making a variable for it so we can set the [onMouseClickEvent] later on
         const button = new ButtonElement(obj.placeHolder, 0, 0, 15, 30, true)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
+            ._setPosition((5).pixel(true), new CenterConstraint())
             .onMouseClickEvent(() => {
                 this._triggerSoundClick()
                 obj.onClick?.(this.categoryClass.parentClass)
@@ -374,19 +339,16 @@ export default class CreateElement {
     _addSwitch(obj, fn) {
         const textDescription = this._makeTextDescription(obj)
 
-        const switchelm = new SwitchElement(obj.value, 0, 0, 12, 30)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
+        const switchElm = new SwitchElement(obj.value, 0, 0, 12, 30)
+            ._setPosition((5).pixel(true), new CenterConstraint())
             .onMouseClickEvent(() => {
                 this._triggerSoundClick()
                 fn()
             })
-        switchelm
+        switchElm
             ._create(this.handler.getColorScheme())
             .setChildOf(textDescription)
-        this.configComps.set(obj.name, switchelm)
+        this.configComps.set(obj.name, switchElm)
 
         return this
     }
@@ -395,10 +357,7 @@ export default class CreateElement {
         const textDescription = this._makeTextDescription(obj)
 
         const component = new DropDown(obj.options, obj.value, 0, 0, 20, 35)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
+            ._setPosition((5).pixel(true), new CenterConstraint())
             .onMouseClickEvent((v) => {
                 this._triggerSoundClick()
                 fn(v)
@@ -408,30 +367,14 @@ export default class CreateElement {
             ._create(this.handler.getColorScheme())
             .setChildOf(textDescription)
 
+        const hideFn = () => !component.hidden && component._hideDropDown()
         this.rightBlock
-            .onMouseScroll(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
-            .onMouseClick(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
+            .onMouseScroll(hideFn.bind(this))
+            .onMouseClick(hideFn.bind(this))
 
         this.categoryClass.parentClass.leftBlock
-            .onMouseScroll(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
-            .onMouseClick(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
-
+            .onMouseScroll(hideFn.bind(this))
+            .onMouseClick(hideFn.bind(this))
 
         this._find(obj.name).compInstance = component
         this.configComps.set(obj.name, component)
@@ -446,10 +389,7 @@ export default class CreateElement {
         //  REMEMBER: this one is missing the entire "rebuild" logic
 
         const component = new MultiCheckbox(obj.options, obj.placeHolder, 0, 0, 20, 35)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
+            ._setPosition((5).pixel(true), new CenterConstraint())
             .onMouseClickEvent((configName, value) => {
                 this._triggerSoundClick()
                 fn(configName, value)
@@ -459,31 +399,17 @@ export default class CreateElement {
             ._create(this.handler.getColorScheme())
             .setChildOf(textDescription)
 
+        const hideFn = () => !component.hidden && component._hideDropDown()
         this.rightBlock
-            .onMouseScroll(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
-            .onMouseClick(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
+            .onMouseScroll(hideFn.bind(this))
+            .onMouseClick(hideFn.bind(this))
 
         this.categoryClass.parentClass.leftBlock
-            .onMouseScroll(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
-            .onMouseClick(() => {
-                if (component.hidden) return
-
-                component._hideDropDown()
-            })
+            .onMouseScroll(hideFn.bind(this))
+            .onMouseClick(hideFn.bind(this))
 
         this._find(obj.name).compInstance = component
+
         for (let k of Object.keys(component.checkboxes)) {
             let v = component.checkboxes[k]
             this.configComps.set(k, v)
@@ -496,45 +422,43 @@ export default class CreateElement {
         const textDescription = this._makeTextDescription(obj)
 
         const comp = new Keybind(obj.value, 0, 0, 15, 30)
-            ._setPosition(
-                (5).pixel(true),
-                new CenterConstraint()
-            )
+            ._setPosition((5).pixel(true), new CenterConstraint())
             .onKeyTypeEvent(fn)
 
         comp._create(this.handler.getColorScheme())
             .setChildOf(textDescription)
 
-        comp.bgbox.onMouseClick(() => {
-            this._triggerSoundClick()
-        })
+        comp.bgbox.onMouseClick(this._triggerSoundClick.bind(this))
         this.configComps.set(obj.name, comp)
 
         return this
     }
 
     /**
-     * - Hides/Unhides the element depending on the [shouldShow] method result
+     * - Hide/Unhide the element depending on the [shouldShow] method result
      */
     _hideElement(data) {
-        this.elements.forEach((obj, idx) => {
-            if (!obj.configObj.shouldShow) return
-            if (idx > 0) obj.previousComponent = this.elements[idx - 1].component
+        if (this.categoryClass.selected) {
+            for (let idx in this.elements) {
+                let obj = this.elements[idx]
 
-            const isEnabled = obj.configObj.shouldShow(data)
-            const component = obj.component
+                if (!obj.configObj.shouldShow) continue
+                if (idx !== 0) obj.previousComponent = this.elements[idx - 1].component
 
-            if (typeof(isEnabled) === "object") throw new Error(`Error while attempting to check for shouldShow. ${obj.configObj.shouldShow} does not return a valid Boolean`)
+                let isEnabled = obj.configObj.shouldShow(data)
+                if (typeof isEnabled === "object") throw `[Amaterasu] Error while attempting to check for shouldShow. ${obj.configObj.shouldShow} does not return a valid Boolean`
+                
+                let component = obj.component
+                if (!isEnabled) {
+                    this._hide(component)
+                    if (!obj.compInstance?.hidden) obj.compInstance?._hideDropDown()
+                    continue
+                }
 
-            if (!isEnabled) {
-                this._hide(component)
-                if (obj.compInstance && !obj.compInstance.hidden) obj.compInstance._hideDropDown()
-
-                return
+                this._unhide(component, idx)
             }
+        }
 
-            this._unhide(component, idx)
-        })
         this.categoryClass.parentClass._triggerShouldShowCategory()
     }
 
@@ -543,11 +467,8 @@ export default class CreateElement {
      * - Hides all the [DropDown] components if they're currently shown.
      */
     _hideDropDownComps() {
-        this.elements.forEach(obj => {
-            if (!obj?.compInstance) return
-
-            obj.compInstance._hideDropDown()
-        })
+        for (let obj of this.elements)
+            obj.compInstance?._hideDropDown()
     }
 
     /**
@@ -560,8 +481,7 @@ export default class CreateElement {
         if (!component) return
 
         const parent = component.parent
-        const childrens = parent?.children
-        const compIdx = childrens?.indexOf(component)
+        const compIdx = parent?.children?.indexOf(component)
 
         // If the [child] doesn't exist already we return
         if (compIdx === -1) return
@@ -580,11 +500,11 @@ export default class CreateElement {
     _unhide(component, idx) {
         if (!component) return
 
-        const prevcomponent = this._findPreviousComponent(idx)
-        const parent = prevcomponent?.parent
-        const childrens = parent?.children
-        const previousIdx = childrens?.indexOf(prevcomponent)
-        const compIdx = childrens?.indexOf(component)
+        const prevComponent = this._findPreviousComponent(idx)
+        const parent = prevComponent?.parent
+        const children = parent?.children
+        const previousIdx = children?.indexOf(prevComponent)
+        const compIdx = children?.indexOf(component)
 
         // If the [previousChild] doesn't exist we return
         // or if the [currentChild] is already set we return
@@ -612,15 +532,11 @@ export default class CreateElement {
      * @returns {UIComponent?}
      */
     _findPreviousComponent(start) {
-        for (let idx = start; idx > 0; idx--) {
-            let comp = this.elements?.[idx]?.previousComponent
-            let parent = comp?.parent
-            let children = parent?.children
-            let compidx = children?.indexOf(comp)
+        while (start--) {
+            let comp = this.elements?.[start]?.previousComponent
+            let compIdx = comp?.parent?.children?.indexOf(comp)
 
-            if (compidx === -1) continue
-
-            return comp
+            if (compIdx !== -1) return comp
         }
     }
 
