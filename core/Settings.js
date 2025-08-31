@@ -702,7 +702,7 @@ export default class Settings {
 
         if (this.sortCategories) this.config.sort(this.sortCategories)
 
-        for (let idx in this.config) {
+        for (let idx = 0; idx < this.config.length; idx++) {
             let categoryName = this.config[idx].category
 
             let categoryClass = new Category(this, categoryName, idx === 0, true).createElementClass._create()
