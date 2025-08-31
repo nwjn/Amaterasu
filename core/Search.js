@@ -84,25 +84,22 @@ export default class SearchElement {
             }
         ]
 
-        this.oldConfig.forEach(mainObj => {
+        for (let mainObj of this.oldConfig) {
+            for (let obj of mainObj.settings) {
+                if (this.matches[0].settings.some(someObj => someObj.name.toLowerCase() == obj.name.toLowerCase())) continue
 
-            mainObj.settings.forEach(obj => {
-                if (this.matches[0].settings.some(someObj => someObj.name.toLowerCase() === obj.name.toLowerCase())) return
+                let text = obj.text.toLowerCase()
+                let description = obj.description.toLowerCase()
+                let tags = obj.tags
 
-                const text = obj.text.toLowerCase()
-                const description = obj.description.toLowerCase()
-                const tags = obj.tags
-
-                if (!(
+                if (
                     text.includes(string.toLowerCase()) ||
                     description.includes(string.toLowerCase()) ||
                     (tags?.length && tags.some(it => it.toLowerCase().includes(string.toLowerCase())))
-                )) return
-
-                this.matches[0].settings.push(obj)
-            })
-
-        })
+                ) 
+                    this.matches[0].settings.push(obj)
+            }
+        }
 
         // Add the current match length so we can use it on the reset values
         this.hasSearched = true
@@ -197,11 +194,9 @@ export default class SearchElement {
      */
     _createDivider(string) {
         if (!string) return
+        
         new DividerElement(string, 0, 0, 85, 5)
-            ._setPosition(
-                new CenterConstraint(),
-                new CramSiblingConstraint(5)
-            )
+            ._setPosition(new CenterConstraint(), new CramSiblingConstraint(5))
             ._create(this.handler.getColorScheme())
             .setChildOf(this.rightBlock)
 

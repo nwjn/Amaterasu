@@ -451,7 +451,7 @@ export default class CreateElement {
                 let component = obj.component
                 if (!isEnabled) {
                     this._hide(component)
-                    if (!obj.compInstance?.hidden) obj.compInstance?._hideDropDown()
+                    if (obj.compInstance && !obj.compInstance.hidden) obj.compInstance._hideDropDown()
                     continue
                 }
 

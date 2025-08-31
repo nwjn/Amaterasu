@@ -58,8 +58,9 @@ export default class DefaultConfig {
      * - whole [Amaterasu]'s [Config] system
      * @param {string} moduleName The module name. this is used on the saving data process so make sure to set it correctly.
      * @param {string} filePath The file path to store the data at. default: `data/settings.json`.
+     * @param {boolean} overwrite Whether to overwrite or save old configs if they are no longer in use
      */
-    constructor(moduleName, filePath = "data/settings.json") {
+    constructor(moduleName, filePath = "data/settings.json", overwrite = true) {
         /**
          * @type {string}
          */
@@ -68,6 +69,10 @@ export default class DefaultConfig {
          * @type {string}
          */
         this.filePath = filePath
+        /**
+         * @type {boolean}
+         */
+        this.overwrite = overwrite
         /**
          * @type {string?}
          */
@@ -175,14 +180,14 @@ export default class DefaultConfig {
      * @returns {string} the category name itself
      */
     _checkCategory(categoryName, configName) {
-        if (!categoryName && !this.lastCategory) throw new Error(`${categoryName} is not a valid Category Name.`)
-        if (configName === "getConfig") throw new Error(`[Amaterasu - ${this.moduleName}] you cannot overwrite a built in function. attempting to create config with configName: ${configName}. failed please change this configName`)
+        if (!categoryName && !this.lastCategory) throw `[Amaterasu - ${this.moduleName}] ${categoryName} is not a valid Category Name.`
+        if (configName === "getConfig") throw `[Amaterasu - ${this.moduleName}] you cannot overwrite a built in function. attempting to create config with configName: ${configName}. failed please change this configName`
 
-        // Gets the prevous category name if [categoryName] is [null]
+        // Gets the previous category name if [categoryName] is [null]
         categoryName = categoryName ?? this.lastCategory
 
-        if (!categoryName) throw new Error(`${categoryName} is not a valid Category Name`)
-        if (!configName) throw new Error(`${configName} is not a valid Config Name.`)
+        if (!categoryName) throw `[Amaterasu - ${this.moduleName}] ${categoryName} is not a valid Category Name`
+        if (!configName) throw `[Amaterasu - ${this.moduleName}] ${configName} is not a valid Config Name.`
 
         // Create category data if it does not exist.
         if (!this.categories.has(categoryName)) {
@@ -200,16 +205,16 @@ export default class DefaultConfig {
      * - Internal use.
      */
     _makeConfig() {
-        this.categories.forEach(categoryName => {
-            const settings = this[categoryName]
+        for (let name of this.categories) {
+            let settings = this[name]
 
-            settings.forEach(dobj => {
-                const obj = this.config.find(names => names.category === categoryName)
-                if (!obj) return this.config.push({ category: categoryName, settings: [dobj] })
+            for (let dataObj of settings) {
+                let obj = this.config.find(it => it.category === name)
 
-                obj.settings.push(dobj)
-            })
-        })
+                if (!obj) this.config.push({ category: name, settings: [dataObj] })
+                else obj.settings.push(dataObj)
+            }
+        }
     }
 
     /**
@@ -222,19 +227,17 @@ export default class DefaultConfig {
      */
     _normalizeSettings(settings) {
         // TODO: change this to only be ran once per feature change
-        // rather than everytime one changes re-scan the entire thing and re-build it
-        this.config.forEach(obj => {
-            obj.settings.forEach(settingsObj => {
-                if (settingsObj.type === ConfigTypes.MULTICHECKBOX) {
-                    settingsObj.options.forEach(opts => {
-                        settings[opts.configName] = opts.value
-                    })
-                    return
+        // rather than every time one changes re-scan the entire thing and re-build it
+        for (let obj of this.config) {
+            for (let setting of obj.settings) {
+                if (setting.type === ConfigTypes.MULTICHECKBOX) {
+                    for (let opt of setting.options) {
+                        settings[opt.configName] = opt.value
+                    }
                 }
-
-                settings[settingsObj.name] = settingsObj.value
-            })
-        })
+                else settings[setting.name] = setting.value
+            }
+        }
     }
 
     /**
@@ -247,19 +250,7 @@ export default class DefaultConfig {
      */
     _initSettings() {
         const settings = {}
-
-        this.config.forEach(obj => {
-            obj.settings.forEach(settingsObj => {
-                if (settingsObj.type === ConfigTypes.MULTICHECKBOX) {
-                    settingsObj.options.forEach(opts => {
-                        settings[opts.configName] = opts.value
-                    })
-                    return
-                }
-
-                settings[settingsObj.name] = settingsObj.value
-            })
-        })
+        this._normalizeSettings(settings)
 
         settings.getConfig = () => this.settingsInstance
 
@@ -283,6 +274,20 @@ export default class DefaultConfig {
                 return { type: it2.type, name: it2.name, value: it2.value }
             })
         }))
+
+        if (!this.overwrite) {
+            for (let cat1 of this.savedConfig) {
+                let catSettings = data.find(cat2 => cat1.category === cat2.category)?.settings
+
+                if (catSettings) {
+                    for (let set1 of catSettings) {
+                        let setObj = cat1.find(set2 => set1.name === set2.name)
+                        if (!setObj) catSettings.push(set1)
+                    }
+                }
+                else data.push(cat1)
+            }
+        }
 
         FileLib.write(
             this.moduleName,
@@ -470,7 +475,7 @@ export default class DefaultConfig {
         configName = null,
         title,
         description,
-        options = ["Test 1", "Test 2"],
+        options = ["Option 1", "Option 2"],
         value = 0,
         shouldShow,
         subcategory = null,
@@ -538,7 +543,7 @@ export default class DefaultConfig {
         configName = null,
         title,
         description,
-        options = ["Test 1", "Test 2"],
+        options = ["Option 1", "Option 2"],
         value = 0,
         shouldShow,
         subcategory = null,
@@ -604,7 +609,7 @@ export default class DefaultConfig {
         category = null,
         configName = null,
         title,
-        description,
+        description = "",
         centered = false,
         shouldShow,
         subcategory = null,
@@ -635,7 +640,7 @@ export default class DefaultConfig {
         configName = null,
         title,
         description,
-        value = 0,
+        value = Keyboard.KEY_NONE,
         shouldShow,
         subcategory = null,
         tags = [],
