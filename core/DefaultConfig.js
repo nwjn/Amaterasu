@@ -276,13 +276,18 @@ export default class DefaultConfig {
         }))
 
         if (!this.overwrite) {
-            for (let cat1 of this.savedConfig) {
-                let catSettings = data.find(cat2 => cat1.category === cat2.category)?.settings
+            for (let catIdx = 0; catIdx < this.savedConfig.length; catIdx++) {
+                let cat1 = this.savedConfig[catIdx]
+                let cat2Props = data.find(cat2 => cat1.category === cat2.category)
+                
+                if (cat2Props) {
+                    let cat1Props = cat1.settings
+                    cat2Props = cat2Props.settings
 
-                if (catSettings) {
-                    for (let set1 of catSettings) {
-                        let setObj = cat1.find(set2 => set1.name === set2.name)
-                        if (!setObj) catSettings.push(set1)
+                    for (let propIdx = 0; propIdx < cat1Props.length; propIdx++) {
+                        let prop1 = cat1Props[propIdx]
+                        let propObj = cat2Props.find(prop2 => prop1.name === prop2.name)
+                        if (!propObj) cat2Props.push(prop1)
                     }
                 }
                 else data.push(cat1)
