@@ -120,11 +120,8 @@ export default class CreateElement {
         if (this.sortElement) configSettings.sort(this.sortElement)
 
         // Start creating the elements based off of the [Object]
-        for (let idx = 0; idx < configSettings.length; idx++) {
-            let obj = configSettings[idx]
-
+        for (let obj of configSettings)
             this._createFromObj(obj)
-        }
 
         // Trigger the hide/unhide of elements
         this._hideElement(this.categoryClass.parentClass.settings)
@@ -410,10 +407,8 @@ export default class CreateElement {
 
         this._find(obj.name).compInstance = component
 
-        for (let k of Object.keys(component.checkboxes)) {
-            let v = component.checkboxes[k]
-            this.configComps.set(k, v)
-        }
+        for (let entry of Object.entries(component.checkboxes))
+            this.configComps.set(entry[0], entry[1])
 
         return this
     }
@@ -439,7 +434,7 @@ export default class CreateElement {
      */
     _hideElement(data) {
         if (this.categoryClass.selected) {
-            for (let idx in this.elements) {
+            for (let idx = 0; idx < this.elements.length; idx++) {
                 let obj = this.elements[idx]
 
                 if (!obj.configObj.shouldShow) continue

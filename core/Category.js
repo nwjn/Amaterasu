@@ -43,7 +43,7 @@ export default class Category {
         this.sidebarButton = new Button1Element(this.categoryName, 0, 0, 80, 8)
             ._setPosition((1).pixel(), new SiblingConstraint(3))
             .onMouseClickEvent(() => {
-                // Avoid hiding this element incase it's the only one being shown
+                // Avoid hiding this element in case it's the only one being shown
                 if (this.parentClass.currentCategory && this.parentClass.currentCategory === this.categoryName) return
 
                 this._setSelected(true)
@@ -122,7 +122,7 @@ export default class Category {
 
     /**
      * - Internal use
-     * - Sets unfocus on the main component of this [class] and clears the childrens
+     * - Sets unfocus on the main component of this [class] and clears the children
      */
     _delete() {
         this._setSelected(false)

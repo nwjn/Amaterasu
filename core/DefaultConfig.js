@@ -153,12 +153,10 @@ export default class DefaultConfig {
 
         // Handle MultiCheckBox savings
         if (obj.type === ConfigTypes.MULTICHECKBOX) {
-            obj.options.forEach(opts => {
-                const nObj = newObj.options.find(op => op.configName === opts.name)
-                if (!nObj) return
-
-                nObj.value = opts.value
-            })
+            for (let opts of obj.options) {
+                let nObj = newObj.options.find(op => op.configName === opts.name)
+                if (nObj) nObj.value = opts.value
+            }
 
             this[categoryName].push(newObj)
 
@@ -231,9 +229,8 @@ export default class DefaultConfig {
         for (let obj of this.config) {
             for (let setting of obj.settings) {
                 if (setting.type === ConfigTypes.MULTICHECKBOX) {
-                    for (let opt of setting.options) {
+                    for (let opt of setting.options)
                         settings[opt.configName] = opt.value
-                    }
                 }
                 else settings[setting.name] = setting.value
             }
