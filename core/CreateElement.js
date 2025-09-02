@@ -202,7 +202,7 @@ export default class CreateElement {
 
         _configListeners.get(name)?.forEach(it => it(value, newValue, name))
         _configListeners.get(this.categoryClass.parentClass.generalSymbol)?.forEach(it => it(value, newValue, name))
-        obj.registerListener?.(value, newValue, name)
+        if (obj.registerListener) obj.registerListener(value, newValue, name)
     }
 
     _handleUpdate(obj, newValue) {
@@ -366,12 +366,12 @@ export default class CreateElement {
 
         const hideFn = () => !component.hidden && component._hideDropDown()
         this.rightBlock
-            .onMouseScroll(hideFn.bind(this))
-            .onMouseClick(hideFn.bind(this))
+            .onMouseScroll(hideFn)
+            .onMouseClick(hideFn)
 
         this.categoryClass.parentClass.leftBlock
-            .onMouseScroll(hideFn.bind(this))
-            .onMouseClick(hideFn.bind(this))
+            .onMouseScroll(hideFn)
+            .onMouseClick(hideFn)
 
         this._find(obj.name).compInstance = component
         this.configComps.set(obj.name, component)
@@ -398,12 +398,12 @@ export default class CreateElement {
 
         const hideFn = () => !component.hidden && component._hideDropDown()
         this.rightBlock
-            .onMouseScroll(hideFn.bind(this))
-            .onMouseClick(hideFn.bind(this))
+            .onMouseScroll(hideFn)
+            .onMouseClick(hideFn)
 
         this.categoryClass.parentClass.leftBlock
-            .onMouseScroll(hideFn.bind(this))
-            .onMouseClick(hideFn.bind(this))
+            .onMouseScroll(hideFn)
+            .onMouseClick(hideFn)
 
         this._find(obj.name).compInstance = component
 
@@ -438,7 +438,7 @@ export default class CreateElement {
                 let obj = this.elements[idx]
 
                 if (!obj.configObj.shouldShow) continue
-                if (idx !== 0) obj.previousComponent = this.elements[idx - 1].component
+                if (idx > 0) obj.previousComponent = this.elements[idx - 1].component
 
                 let isEnabled = obj.configObj.shouldShow(data)
                 if (typeof isEnabled === "object") throw `[Amaterasu] Error while attempting to check for shouldShow. ${obj.configObj.shouldShow} does not return a valid Boolean`
@@ -527,8 +527,8 @@ export default class CreateElement {
      * @returns {UIComponent?}
      */
     _findPreviousComponent(start) {
-        while (start--) {
-            let comp = this.elements?.[start]?.previousComponent
+        for (let idx = start; idx > 0; idx--) {
+            let comp = this.elements?.[idx]?.previousComponent
             let compIdx = comp?.parent?.children?.indexOf(comp)
 
             if (compIdx !== -1) return comp

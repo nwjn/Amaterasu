@@ -412,7 +412,7 @@ export default class Settings {
 
         configListeners.get(editedName)?.forEach(it => it(oldValue, newValue, editedName))
         configListeners.get(this.generalSymbol)?.forEach(it => it(oldValue, newValue, editedName))
-        configObj.registerListener?.(oldValue, newValue, editedName)
+        if (configObj.registerListener) configObj.registerListener(oldValue, newValue, editedName)
 
         return this
     }
