@@ -58,7 +58,7 @@ export default class DefaultConfig {
      * - whole [Amaterasu]'s [Config] system
      * @param {string} moduleName The module name. this is used on the saving data process so make sure to set it correctly.
      * @param {string} filePath The file path to store the data at. default: `data/settings.json`.
-     * @param {boolean} overwrite Whether to overwrite or save old configs if they are no longer in use
+     * @param {boolean?} overwrite Whether to [true: overwrite] or [false: merge configs] to save old properties
      */
     constructor(moduleName, filePath = "data/settings.json", overwrite = true) {
         /**
@@ -69,6 +69,10 @@ export default class DefaultConfig {
          * @type {string}
          */
         this.filePath = filePath
+                /**
+         * @type {string}
+         */
+        this.backupFileName = this.filePath.replace("/", "_")
         /**
          * @type {boolean}
          */
@@ -83,10 +87,15 @@ export default class DefaultConfig {
          * @type {Set<string>}
          */
         this.categories = new Set()
+
         /**
          * @type {any[]}
          */
-        this.savedConfig = JSON.parse(FileLib.read(this.moduleName, this.filePath) || "{}")
+        this.savedConfig = JSON.parse(
+            FileLib.read(this.moduleName, this.filePath) || 
+            FileLib.read(`./config/amaterasu-backup/${this.moduleName}/${this.backupFileName}`) || 
+            "[]"
+        )
 
         /**
          * Config stuff
@@ -120,7 +129,6 @@ export default class DefaultConfig {
      */
     _init() {
         this._makeConfig()
-        this._saveToFile()
         return this
     }
 
@@ -253,6 +261,15 @@ export default class DefaultConfig {
 
         this.settingsInstance.settings = settings
 
+        // Save backup as previous file
+        this.settingsInstance.handler.registers.onOpen(() => 
+            FileLib.write(
+                `./config/amaterasu-backup/${this.moduleName}/${this.backupFileName}`,
+                FileLib.read(this.moduleName, this.filePath),
+                true
+            )
+        )
+
         return settings
     }
 
@@ -283,14 +300,14 @@ export default class DefaultConfig {
 
                     for (let propIdx = 0; propIdx < cat1Props.length; propIdx++) {
                         let prop1 = cat1Props[propIdx]
-                        let propObj = cat2Props.find(prop2 => prop1.name === prop2.name)
-                        if (!propObj) cat2Props.push(prop1)
+                        let hasProp = cat2Props.some(prop2 => prop1.name === prop2.name)
+                        if (!hasProp) cat2Props.push(prop1)
                     }
                 }
                 else data.push(cat1)
             }
         }
-
+        
         FileLib.write(
             this.moduleName,
             this.filePath,

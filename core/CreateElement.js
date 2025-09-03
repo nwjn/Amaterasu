@@ -139,51 +139,70 @@ export default class CreateElement {
     _createFromObj(obj) {
         switch (obj.type) {
             case ConfigTypes.TOGGLE:
-                return this._addToggle(obj, () => this._handleUpdate(obj, !obj.value))
+                this._addToggle(obj, () => this._handleUpdate(obj, !obj.value))
+                break
 
             case ConfigTypes.SLIDER:
-                return this._addSlider(obj, (sliderValue) => {
-                    sliderValue = parseFloat(sliderValue)
-                    if (isNaN(sliderValue)) return
+                this._addSlider(obj, (sliderValue) => {
+                    if (typeof sliderValue === "string") sliderValue = parseFloat(sliderValue)
+                    if (typeof sliderValue !== "number" || !this.categoryClass.selected) return
 
                     this._handleUpdate(obj, sliderValue)
                 })
+                break
 
             case ConfigTypes.BUTTON:
-                return this._addButton(obj)
+                this._addButton(obj)
+                break
 
             case ConfigTypes.SELECTION:
-                return this._addSelection(obj, (selectionIndex) => {
-                    if (typeof selectionIndex !== "number") return
+                this._addSelection(obj, (selectionIndex) => {
+                    if (typeof selectionIndex !== "number" || !this.categoryClass.selected) return
                     
                     this._handleUpdate(obj, selectionIndex)
                 })
+                break
 
             case ConfigTypes.TEXTINPUT:
-                return this._addTextInput(obj, (inputText) => this._handleUpdate(obj, inputText))
+                this._addTextInput(obj, (inputText) => {
+                    if (!this.categoryClass.selected) return
+                    
+                    this._handleUpdate(obj, inputText)
+                })
+                break
 
             case ConfigTypes.COLORPICKER:
-                return this._addColorPicker(obj, (rgbaArray) => this._handleUpdate(obj, rgbaArray))
+                this._addColorPicker(obj, (rgbaArray) => {
+                    if (!this.categoryClass.selected) return
+                    
+                    this._handleUpdate(obj, rgbaArray)
+                })
+                break
 
             case ConfigTypes.SWITCH:
-                return this._addSwitch(obj, () => this._handleUpdate(obj, !obj.value))
+                this._addSwitch(obj, () => this._handleUpdate(obj, !obj.value))
+                break
 
             case ConfigTypes.DROPDOWN:
-                return this._addDropDown(obj, (dropDownIndex) => this._handleUpdate(obj, dropDownIndex))
+                this._addDropDown(obj, (value) => this._handleUpdate(obj, value))
+                break
 
             case ConfigTypes.MULTICHECKBOX:
-                return this._addMultiCheckbox(obj, (configName, value) => {
-                    const actualObj = obj.options.find(it => it.configName === configName)
-                    if (!actualObj) return
+                this._addMultiCheckbox(obj, (configName, value) => {
+                    const idx = obj.options.findIndex(it => it.configName === configName)
+                    if (idx === -1) return
                     
-                    this._handleUpdate(actualObj, value)
+                    this._handleUpdate(obj.options[idx], value)
                 })
+                break
 
             case ConfigTypes.TEXTPARAGRAPH:
-                return this._makeTextDescription(obj)
+                this._makeTextDescription(obj)
+                break
 
             case ConfigTypes.KEYBIND:
-                return this._addKeybind(obj, (keyCode) => this._handleUpdate(obj, keyCode))
+                this._addKeybind(obj, (value) => this._handleUpdate(obj, value))
+                break
         }
     }
 

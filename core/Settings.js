@@ -705,10 +705,13 @@ export default class Settings {
         for (let idx = 0; idx < this.config.length; idx++) {
             let categoryName = this.config[idx].category
 
-            let categoryClass = new Category(this, categoryName, idx === 0, true).createElementClass._create()
-            this.categories.set(categoryName, categoryClass)
+            let categoryClass = new Category(this, categoryName, idx === 0, true)
+                .createElementClass._create()
+                ._setShouldShow(this._hideCategory[categoryName])
+                
+            categoryClass.shouldShow()
 
-            categoryClass._setShouldShow(this._hideCategory[categoryName]).shouldShow()
+            this.categories.set(categoryName, categoryClass)
         }
     }
 
