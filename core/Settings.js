@@ -756,7 +756,7 @@ export default class Settings {
         for (let entry of this.categories) {
             // Ensure that the amount of selected components variables
             // set to true is more than 1
-            if (entry[1].selected) selectedAmount++
+            if (entry[1]?.selected) selectedAmount++
             if (selectedAmount < 1) continue
 
             // Gets the old category's class to disable it

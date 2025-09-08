@@ -452,25 +452,23 @@ export default class CreateElement {
      * - Hide/Unhide the element depending on the [shouldShow] method result
      */
     _hideElement(data) {
-        if (this.categoryClass.selected) {
-            for (let idx = 0; idx < this.elements.length; idx++) {
-                let obj = this.elements[idx]
+        for (let idx = 0; idx < this.elements.length; idx++) {
+            let obj = this.elements[idx]
 
-                if (!obj.configObj.shouldShow) continue
-                if (idx > 0) obj.previousComponent = this.elements[idx - 1].component
+            if (!obj.configObj.shouldShow) continue
+            if (idx > 0) obj.previousComponent = this.elements[idx - 1].component
 
-                let isEnabled = obj.configObj.shouldShow(data)
-                if (typeof isEnabled === "object") throw `[Amaterasu] Error while attempting to check for shouldShow. ${obj.configObj.shouldShow} does not return a valid Boolean`
-                
-                let component = obj.component
-                if (!isEnabled) {
-                    this._hide(component)
-                    if (obj.compInstance && !obj.compInstance.hidden) obj.compInstance._hideDropDown()
-                    continue
-                }
-
-                this._unhide(component, idx)
+            let isEnabled = obj.configObj.shouldShow(data)
+            if (typeof isEnabled === "object") throw `[Amaterasu] Error while attempting to check for shouldShow. ${obj.configObj.shouldShow} does not return a valid Boolean`
+            
+            let component = obj.component
+            if (!isEnabled) {
+                this._hide(component)
+                if (obj.compInstance && !obj.compInstance.hidden) obj.compInstance._hideDropDown()
+                continue
             }
+
+            this._unhide(component, idx)
         }
 
         this.categoryClass.parentClass._triggerShouldShowCategory()
@@ -492,13 +490,11 @@ export default class CreateElement {
      * @returns 
      */
     _hide(component) {
-        if (!component) return
-
-        const parent = component.parent
+        const parent = component?.parent
         const compIdx = parent?.children?.indexOf(component)
 
         // If the [child] doesn't exist already we return
-        if (compIdx === -1) return
+        if (typeof compIdx !== "number" || compIdx === -1) return
 
         // Remove the [child] from the [parent]
         parent.removeChild(component)
@@ -522,7 +518,7 @@ export default class CreateElement {
 
         // If the [previousChild] doesn't exist we return
         // or if the [currentChild] is already set we return
-        if (previousIdx === -1 || compIdx !== -1) return
+        if (previousIdx === -1 || typeof compIdx !== "number" || compIdx !== -1) return
 
         parent.insertChildAt(component, previousIdx + 1)
     }
@@ -546,11 +542,13 @@ export default class CreateElement {
      * @returns {UIComponent?}
      */
     _findPreviousComponent(start) {
-        for (let idx = start; idx > 0; idx--) {
-            let comp = this.elements?.[idx]?.previousComponent
-            let compIdx = comp?.parent?.children?.indexOf(comp)
+        if (start < 0 || start >= this.elements.length) return
 
-            if (compIdx !== -1) return comp
+        for (let idx = start; idx > 0; idx--) {
+            let comp = this.elements[idx].previousComponent
+            let compIdx = comp.parent?.children?.indexOf(comp)
+
+            if (typeof compIdx === "number" && compIdx !== -1) return comp
         }
     }
 
