@@ -2,10 +2,19 @@ import ElementUtils from "../../DocGuiLib/core/Element"
 import HandleGui from "../../DocGuiLib/core/Gui"
 import MarkdownElement from "../../DocGuiLib/elements/Markdown"
 import SearchElement from "./Search"
-import { CenterConstraint, CramSiblingConstraint, OutlineEffect, ScrollComponent, UIRoundedRectangle, UIText, Window } from "../../Elementa"
+import { CenterConstraint, CramSiblingConstraint, OutlineEffect, ScrollComponent, UIRoundedRectangle, UIText } from "../../Elementa"
 import Category from "./Category"
 import { CustomGui } from "../../DocGuiLib/core/CustomGui"
 import HandleRegisters from "../../DocGuiLib/listeners/Registers"
+import { isLegacy } from "../../DocGuiLib/core/Compatibility"
+let Window//, CustomGui, HandleRegisters
+
+if (isLegacy) {
+    Window = Java.type("gg.essential.elementa").components.Window
+    // uhh idk
+    // CustomGui = require("../../DocGuiLib/core/CustomGui")
+    // HandleRegisters = require("../../DocGuiLib/listeners/Registers")
+}
 
 // Credits to @unclaimedbloom6 (big thank)
 const mergeObjects = (obj1, obj2, final = {}) => {
@@ -73,10 +82,12 @@ export default class Settings {
         this.handler = new HandleGui()._setColorScheme(this.colorScheme)
 
         // Rebuild handler with new Custom Gui in DocGuiLib
-        this.handler.ctGui = new CustomGui()
-        this.handler.window = new Window()
-        this.handler.registers = new HandleRegisters(this.handler.ctGui, this.handler.window)
-        this.handler.registers.isCustom = true
+        if (isLegacy) {
+            this.handler.ctGui = new CustomGui()
+            this.handler.window = new Window()
+            this.handler.registers = new HandleRegisters(this.handler.ctGui, this.handler.window)
+            this.handler.registers.isCustom = true
+        }
 
         // Save window size to fix text-wrapping issue
         this._startedWidth = Renderer.screen.getWidth() * Renderer.screen.getScale()
@@ -108,49 +119,52 @@ export default class Settings {
         this.categories = new Map()
         this.currentCategory = null
         this.oldCategory = null
-        this.markdowns = []
+        this.markdowns = {}
         this._hideCategory = {}
 
         // Enable repeat keys so people can hold down keys to type now
-        this.handler.ctGui
-            .registerInit(() => Keyboard.enableRepeatEvents(true))
-            .registerResize(this._checkResize.bind(this))
-
-        this.handler.registers
-            .onOpen(() => {
-                this._checkResize()
-
-                // Trigger listeners
-                for (let fn of this._onOpenGui) 
-                    fn()
-
-                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
-                if (gameSettings./* guiScale */field_74335_Z === 2) return
-
-                // Save previous [GuiScale]
-                this.GuiScale = gameSettings./* guiScale */field_74335_Z
-                // Set [Normal] [GuiScale]
-                gameSettings./* guiScale */field_74335_Z = 2
-            })
-            .onClose(() => {
-                // Disable repeating keys so it doesn't leak to the main game
-                Keyboard.enableRepeatEvents(false)
-
-                for (let entry of this.categories)
-                    entry[1]?.createElementClass?._hideDropDownComps()
-
-                // Trigger listeners
-                for (let fn of this._onCloseGui)
-                    fn()
-
-                if (this.GuiScale === null || this.GuiScale === 2) return
-
-                const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
-                if (gameSettings./* guiScale */field_74335_Z !== 2) return
-
-                gameSettings./* guiScale */field_74335_Z = this.GuiScale
-                this.GuiScale = null
-            })
+        if (isLegacy) {
+            this.handler.ctGui
+                .registerInit(() => Keyboard.enableRepeatEvents(true))
+                .registerResize(this._checkResize.bind(this))
+    
+            // FIX ME
+            this.handler.registers
+                .onOpen(() => {
+                    this._checkResize()
+    
+                    // Trigger listeners
+                    for (let fn of this._onOpenGui) 
+                        fn()
+    
+                    const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
+                    if (gameSettings./* guiScale */field_74335_Z === 2) return
+    
+                    // Save previous [GuiScale]
+                    this.GuiScale = gameSettings./* guiScale */field_74335_Z
+                    // Set [Normal] [GuiScale]
+                    gameSettings./* guiScale */field_74335_Z = 2
+                })
+                .onClose(() => {
+                    // Disable repeating keys so it doesn't leak to the main game
+                    Keyboard.enableRepeatEvents(false)
+    
+                    for (let entry of this.categories)
+                        entry[1]?.createElementClass?._hideDropDownComps()
+    
+                    // Trigger listeners
+                    for (let fn of this._onCloseGui)
+                        fn()
+    
+                    if (this.GuiScale === null || this.GuiScale === 2) return
+    
+                    const gameSettings = Client.getMinecraft()./* gameSettings */field_71474_y
+                    if (gameSettings./* guiScale */field_74335_Z !== 2) return
+    
+                    gameSettings./* guiScale */field_74335_Z = this.GuiScale
+                    this.GuiScale = null
+                })
+        }
 
         // Drawing variables
         /**
@@ -463,7 +477,7 @@ export default class Settings {
     addMarkdown(category, text, _internal = false) {
         if (Array.isArray(text)) text = text.join("\n")
 
-        if (!_internal) this.markdowns.push([category, text])
+        if (!_internal) this.markdowns[category] = text
 
         const markdownCategory = new Category(this, category, false, false)
         new MarkdownElement(text, 0, 0, 85, 85)
@@ -622,8 +636,8 @@ export default class Settings {
         this.handler.getWindow().clearChildren()
         this._init()
 
-        for (let md of this.markdowns) 
-            this.addMarkdown(md[0], md[1], true)
+        for (let cat in this.markdowns) 
+            this.addMarkdown(cat, this.markdowns[cat], true)
 
         return this
     }

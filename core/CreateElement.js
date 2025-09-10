@@ -98,9 +98,10 @@ export default class CreateElement {
         const textScale = descElement._getSchemeValue("text", "scale")
         const textScaleType = guiScheme.Text.text.scaleType
         const isPercent = textScaleType.toLowerCase() === "percent"
+        const sumType = isPercent ? (textScale).percent() : (textScale).pixels()
 
-        descElement.text.setTextScale((textScale)[isPercent ? "percent" : "pixels"]())
-        descElement.descriptionElement.setTextScale((textScale)[isPercent ? "percent" : "pixels"]())
+        descElement.text.setTextScale(sumType)
+        descElement.descriptionElement.setTextScale(sumType)
 
         this.elements.push({ name: obj.name, component: bgBox, configObj: obj, previousComponent: null })
 
@@ -308,6 +309,8 @@ export default class CreateElement {
             ._setPosition((5).pixel(true), new CenterConstraint())
             .onMouseClickEvent(this._triggerSoundClick.bind(this))
             .onKeyTypeEvent(fn)
+            .setUseCustomKeyEvent(false)
+
         input
             ._create(this.handler.getColorScheme())
             .setChildOf(textDescription)
